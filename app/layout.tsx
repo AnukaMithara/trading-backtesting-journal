@@ -11,6 +11,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Trading Backtest Journal",
   description: "Professional trading backtesting and analytics platform",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   icons: {
     icon: [
       {
@@ -44,7 +45,7 @@ export default function RootLayout({
         <Providers>
           <div className="min-h-screen bg-background">
             <Navigation />
-            <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-7xl">{children}</main>
+            <main className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-7xl">{children}</main>
           </div>
           <Toaster />
         </Providers>
