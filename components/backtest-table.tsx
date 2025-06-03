@@ -1,11 +1,10 @@
-import type React from "react"
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface BacktestTableProps {
   data: any[] // Replace 'any' with a more specific type if possible
 }
 
-const BacktestTable: React.FC<BacktestTableProps> = ({ data }) => {
+export function BacktestTable({ data }: BacktestTableProps) {
   return (
     <div className="w-full space-y-4">
       <Table>
@@ -41,5 +40,3 @@ const BacktestTable: React.FC<BacktestTableProps> = ({ data }) => {
     </div>
   )
 }
-
-export default BacktestTable
