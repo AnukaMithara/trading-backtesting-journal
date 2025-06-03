@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Building2 } from "lucide-react"
+import { Plus, Building2, ExternalLink } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useToast } from "@/hooks/use-toast"
@@ -29,7 +31,7 @@ export function BrokerAssetManagement() {
   const { toast } = useToast()
 
   // Fetch data
-  const { data: brokers = [] } = useQuery({
+  const { data: brokers = [], isLoading: brokersLoading } = useQuery({
     queryKey: ["brokers"],
     queryFn: async () => {
       const response = await fetch("/api/brokers")
@@ -38,7 +40,7 @@ export function BrokerAssetManagement() {
     },
   })
 
-  const { data: assets = [] } = useQuery({
+  const { data: assets = [], isLoading: assetsLoading } = useQuery({
     queryKey: ["assets"],
     queryFn: async () => {
       const response = await fetch("/api/assets")
@@ -47,7 +49,7 @@ export function BrokerAssetManagement() {
     },
   })
 
-  const { data: exchanges = [] } = useQuery({
+  const { data: exchanges = [], isLoading: exchangesLoading } = useQuery({
     queryKey: ["exchanges"],
     queryFn: async () => {
       const response = await fetch("/api/exchanges")
@@ -166,34 +168,72 @@ export function BrokerAssetManagement() {
     },
   })
 
+  const LoadingState = ({ message }: { message: string }) => (
+    <div className="flex items-center justify-center py-12">
+      <div className="text-center space-y-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  )
+
+  const EmptyState = ({
+    title,
+    description,
+    action,
+  }: { title: string; description: string; action: React.ReactNode }) => (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+        <Building2 className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-medium mb-2">{title}</h3>
+      <p className="text-muted-foreground mb-6 max-w-sm mx-auto">{description}</p>
+      {action}
+    </div>
+  )
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
+    <Card className="shadow-lg border-0 bg-card/50 backdrop-blur">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-xl sm:text-2xl">
+          <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           Broker & Asset Management
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Manage your trading brokers, assets, and exchanges for better organization
+        </p>
       </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="brokers">Brokers ({brokers.length})</TabsTrigger>
-            <TabsTrigger value="assets">Assets ({assets.length})</TabsTrigger>
-            <TabsTrigger value="exchanges">Exchanges ({exchanges.length})</TabsTrigger>
-          </TabsList>
+      <CardContent className="p-0 sm:p-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="px-6 sm:px-0">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="brokers" className="text-xs sm:text-sm">
+                Brokers ({brokers.length})
+              </TabsTrigger>
+              <TabsTrigger value="assets" className="text-xs sm:text-sm">
+                Assets ({assets.length})
+              </TabsTrigger>
+              <TabsTrigger value="exchanges" className="text-xs sm:text-sm">
+                Exchanges ({exchanges.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Brokers Tab */}
-          <TabsContent value="brokers" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Manage Brokers</h3>
+          <TabsContent value="brokers" className="space-y-6 px-6 sm:px-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">Manage Brokers</h3>
+                <p className="text-sm text-muted-foreground">Add and organize your trading brokers</p>
+              </div>
               <Dialog open={brokerDialogOpen} onOpenChange={setBrokerDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Broker
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Add New Broker</DialogTitle>
                   </DialogHeader>
@@ -251,66 +291,86 @@ export function BrokerAssetManagement() {
               </Dialog>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Website</TableHead>
-                    <TableHead>Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {brokers.map((broker: any) => (
-                    <TableRow key={broker._id}>
-                      <TableCell className="font-medium">{broker.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {broker.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {broker.website ? (
-                          <a
-                            href={broker.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            Visit
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{broker.description || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {brokers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                        No brokers added yet. Click "Add Broker" to get started.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            {brokersLoading ? (
+              <LoadingState message="Loading brokers..." />
+            ) : brokers.length === 0 ? (
+              <EmptyState
+                title="No brokers yet"
+                description="Add your first broker to start organizing your trading accounts"
+                action={
+                  <Dialog open={brokerDialogOpen} onOpenChange={setBrokerDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Broker
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                }
+              />
+            ) : (
+              <div className="rounded-lg border bg-background/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">Name</TableHead>
+                        <TableHead className="font-semibold">Type</TableHead>
+                        <TableHead className="font-semibold hidden sm:table-cell">Website</TableHead>
+                        <TableHead className="font-semibold hidden md:table-cell">Description</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {brokers.map((broker: any) => (
+                        <TableRow key={broker._id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium">{broker.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {broker.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            {broker.website ? (
+                              <a
+                                href={broker.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm"
+                              >
+                                Visit
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate hidden md:table-cell">
+                            {broker.description || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Assets Tab */}
-          <TabsContent value="assets" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Manage Assets</h3>
+          <TabsContent value="assets" className="space-y-6 px-6 sm:px-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">Manage Assets</h3>
+                <p className="text-sm text-muted-foreground">Add and organize your trading instruments</p>
+              </div>
               <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Asset
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Add New Asset</DialogTitle>
                   </DialogHeader>
@@ -382,55 +442,76 @@ export function BrokerAssetManagement() {
               </Dialog>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Asset Class</TableHead>
-                    <TableHead>Exchange</TableHead>
-                    <TableHead>Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {assets.map((asset: any) => (
-                    <TableRow key={asset._id}>
-                      <TableCell className="font-medium">{asset.symbol}</TableCell>
-                      <TableCell>{asset.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {asset.assetClass}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{asset.exchange || "-"}</TableCell>
-                      <TableCell className="max-w-xs truncate">{asset.description || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {assets.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No assets added yet. Click "Add Asset" to get started.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            {assetsLoading ? (
+              <LoadingState message="Loading assets..." />
+            ) : assets.length === 0 ? (
+              <EmptyState
+                title="No assets yet"
+                description="Add your first trading asset to start building your portfolio"
+                action={
+                  <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Asset
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                }
+              />
+            ) : (
+              <div className="rounded-lg border bg-background/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">Symbol</TableHead>
+                        <TableHead className="font-semibold">Name</TableHead>
+                        <TableHead className="font-semibold">Class</TableHead>
+                        <TableHead className="font-semibold hidden sm:table-cell">Exchange</TableHead>
+                        <TableHead className="font-semibold hidden md:table-cell">Description</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {assets.map((asset: any) => (
+                        <TableRow key={asset._id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium font-mono">{asset.symbol}</TableCell>
+                          <TableCell>{asset.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {asset.assetClass}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            {asset.exchange || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate hidden md:table-cell">
+                            {asset.description || <span className="text-muted-foreground">-</span>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Exchanges Tab */}
-          <TabsContent value="exchanges" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Manage Exchanges</h3>
+          <TabsContent value="exchanges" className="space-y-6 px-6 sm:px-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold">Manage Exchanges</h3>
+                <p className="text-sm text-muted-foreground">Add and organize trading exchanges</p>
+              </div>
               <Dialog open={exchangeDialogOpen} onOpenChange={setExchangeDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Exchange
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Add New Exchange</DialogTitle>
                   </DialogHeader>
@@ -474,35 +555,49 @@ export function BrokerAssetManagement() {
               </Dialog>
             </div>
 
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Country</TableHead>
-                    <TableHead>Timezone</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {exchanges.map((exchange: any) => (
-                    <TableRow key={exchange._id}>
-                      <TableCell className="font-medium">{exchange.name}</TableCell>
-                      <TableCell>{exchange.code}</TableCell>
-                      <TableCell>{exchange.country}</TableCell>
-                      <TableCell>{exchange.timezone}</TableCell>
-                    </TableRow>
-                  ))}
-                  {exchanges.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                        No exchanges added yet. Click "Add Exchange" to get started.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            {exchangesLoading ? (
+              <LoadingState message="Loading exchanges..." />
+            ) : exchanges.length === 0 ? (
+              <EmptyState
+                title="No exchanges yet"
+                description="Add your first exchange to organize your trading venues"
+                action={
+                  <Dialog open={exchangeDialogOpen} onOpenChange={setExchangeDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Your First Exchange
+                      </Button>
+                    </DialogTrigger>
+                  </Dialog>
+                }
+              />
+            ) : (
+              <div className="rounded-lg border bg-background/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">Name</TableHead>
+                        <TableHead className="font-semibold">Code</TableHead>
+                        <TableHead className="font-semibold hidden sm:table-cell">Country</TableHead>
+                        <TableHead className="font-semibold hidden md:table-cell">Timezone</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {exchanges.map((exchange: any) => (
+                        <TableRow key={exchange._id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell className="font-medium">{exchange.name}</TableCell>
+                          <TableCell className="font-mono">{exchange.code}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{exchange.country}</TableCell>
+                          <TableCell className="hidden md:table-cell font-mono text-sm">{exchange.timezone}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
