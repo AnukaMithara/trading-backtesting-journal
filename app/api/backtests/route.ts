@@ -41,35 +41,43 @@ export async function POST(request: NextRequest) {
     console.log("POST /api/backtests - Starting request processing")
 
     const body = await request.json()
-    console.log("Received body:", body)
+    console.log("Received body:", JSON.stringify(body, null, 2))
 
+    // Validate the data
     const validatedData = backtestWithTagsSchema.parse(body)
-    console.log("Validated data:", validatedData)
+    console.log("Validated data:", JSON.stringify(validatedData, null, 2))
 
     // Calculate trade metrics
     const calculatedData = calculateTradeMetrics(validatedData)
-    console.log("Calculated data:", calculatedData)
+    console.log("Calculated data:", JSON.stringify(calculatedData, null, 2))
 
     const client = await clientPromise
-    const db = client.db("backtesting")
+    console.log("MongoDB client connected")
 
+    const db = client.db("backtesting")
+    console.log("Database selected: backtesting")
+
+    // Ensure collection exists
     const collections = await db.listCollections({ name: "backtests" }).toArray()
     if (collections.length === 0) {
+      console.log("Creating backtests collection")
       await db.createCollection("backtests")
     }
 
     const collection = db.collection("backtests")
 
+    // Prepare the document for insertion
     const backtest = {
       ...calculatedData,
       entryDateTime: new Date(validatedData.entryDateTime),
-      exitDateTime: validatedData.exitDateTime ? new Date(validatedData.exitDateTime) : undefined,
+      exitDateTime: validatedData.exitDateTime ? new Date(validatedData.exitDateTime) : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    console.log("Document to insert:", backtest)
+    console.log("Document to insert:", JSON.stringify(backtest, null, 2))
 
+    // Insert the document
     const result = await collection.insertOne(backtest)
     console.log("Insert result:", result)
 
@@ -77,10 +85,11 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to insert document - no insertedId returned")
     }
 
-    const responseData = { ...backtest, _id: result.insertedId }
-    console.log("Sending response:", responseData)
+    // Fetch the inserted document to return
+    const insertedDocument = await collection.findOne({ _id: result.insertedId })
+    console.log("Inserted document:", JSON.stringify(insertedDocument, null, 2))
 
-    return NextResponse.json(responseData, { status: 201 })
+    return NextResponse.json(insertedDocument, { status: 201 })
   } catch (error) {
     console.error("Error creating backtest:", error)
 
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
         {
           error: "Failed to create backtest",
           details: error.message,
-          stack: error.stack,
+          stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
         },
         { status: 500 },
       )

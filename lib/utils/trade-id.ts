@@ -1,22 +1,16 @@
-/**
- * Generates a unique trade ID with a prefix and random alphanumeric characters
- * Format: TRD-YYYYMMDD-XXXX where XXXX is a random alphanumeric string
- */
 export function generateTradeId(): string {
-  const prefix = "TRD"
-  const date = new Date()
-  const dateStr = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("")
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+  const hours = String(now.getHours()).padStart(2, "0")
+  const minutes = String(now.getMinutes()).padStart(2, "0")
+  const seconds = String(now.getSeconds()).padStart(2, "0")
 
-  // Generate a random 4-character alphanumeric string
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  let randomStr = ""
-  for (let i = 0; i < 4; i++) {
-    randomStr += characters.charAt(Math.floor(Math.random() * characters.length))
-  }
+  // Generate a random 4-digit number
+  const random = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0")
 
-  return `${prefix}-${dateStr}-${randomStr}`
+  return `TRD-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`
 }

@@ -267,41 +267,87 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
 
   const createBacktest = useMutation({
     mutationFn: async (data: BacktestFormData) => {
-      const completeData = { ...data, tags, indicatorsUsed: indicators }
+      console.log("Submitting trade data:", data)
+      console.log("Tags:", tags)
+      console.log("Indicators:", indicators)
+
+      // Ensure all required fields are present
+      if (!data.tradeId || !data.entryDateTime || !data.asset || !data.broker) {
+        throw new Error("Missing required fields")
+      }
+
+      if (tags.length === 0) {
+        throw new Error("At least one tag is required")
+      }
+
+      const completeData = {
+        ...data,
+        tags: tags.filter((tag) => tag.trim() !== ""), // Remove empty tags
+        indicatorsUsed: indicators.filter((indicator) => indicator.trim() !== ""), // Remove empty indicators
+      }
+
+      console.log("Complete data being sent:", JSON.stringify(completeData, null, 2))
+
       const validatedData = backtestWithTagsSchema.parse(completeData)
+      console.log("Validated data:", JSON.stringify(validatedData, null, 2))
 
       const response = await fetch("/api/backtests", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify(validatedData),
       })
 
+      console.log("Response status:", response.status)
+      console.log("Response headers:", response.headers)
+
       if (!response.ok) {
-        const errorData = await response.text()
-        throw new Error(`Failed to create backtest: ${response.status} - ${errorData}`)
+        const errorText = await response.text()
+        console.error("Error response:", errorText)
+
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText }
+        }
+
+        throw new Error(errorData.details || errorData.error || `HTTP ${response.status}: ${errorText}`)
       }
 
-      return response.json()
+      const result = await response.json()
+      console.log("Success response:", result)
+      return result
     },
     onSuccess: (data, variables) => {
+      console.log("Trade created successfully:", data)
+
       // Save the successful trade data for future pre-fill
       saveLastSuccessfulTrade({ ...variables, tags, indicatorsUsed: indicators })
 
       queryClient.invalidateQueries({ queryKey: ["backtests"] })
       queryClient.invalidateQueries({ queryKey: ["analytics"] })
+
       toast({
         title: "Success",
-        description: "Backtest created successfully",
+        description: "Trade created successfully",
       })
-      reset()
+
+      // Reset form
+      reset(getDefaultValues())
       setTags([])
       setIndicators([])
       setCurrentStep(1)
       setSubmitError(null)
+      setHasPrefilled(false)
+
       onSuccess?.()
     },
     onError: (error) => {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create backtest"
+      console.error("Error creating trade:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to create trade"
       setSubmitError(errorMessage)
       toast({
         title: "Error",
@@ -371,6 +417,49 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
   }
 
   const onSubmit = (data: BacktestFormData) => {
+    console.log("Form submitted with data:", data)
+
+    // Validate required fields
+    if (!data.tradeId?.trim()) {
+      setSubmitError("Trade ID is required")
+      toast({
+        title: "Error",
+        description: "Trade ID is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!data.entryDateTime) {
+      setSubmitError("Entry date and time is required")
+      toast({
+        title: "Error",
+        description: "Entry date and time is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!data.asset?.trim()) {
+      setSubmitError("Asset is required")
+      toast({
+        title: "Error",
+        description: "Asset is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!data.broker?.trim()) {
+      setSubmitError("Broker is required")
+      toast({
+        title: "Error",
+        description: "Broker is required",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (tags.length === 0) {
       setSubmitError("Please add at least one tag")
       toast({
@@ -382,6 +471,7 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
     }
 
     setSubmitError(null)
+    console.log("Validation passed, creating trade...")
     createBacktest.mutate(data)
   }
 
