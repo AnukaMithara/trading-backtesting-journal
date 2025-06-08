@@ -6,7 +6,7 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { BarChart3, Home, Plus, TrendingUp, List, LogOut, Menu, X } from "lucide-react"
+import { BarChart3, Home, Plus, TrendingUp, List, LogOut, Menu, X, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 const navigation = [
@@ -14,6 +14,7 @@ const navigation = [
   { name: "Add Trade", href: "/add", icon: Plus, description: "Record new trade" },
   { name: "Trade List", href: "/trades", icon: List, description: "View all trades" },
   { name: "Analytics", href: "/analytics", icon: BarChart3, description: "Advanced analytics" },
+  { name: "Settings", href: "/settings", icon: Settings, description: "Configure environment" },
 ]
 
 export function Navigation() {

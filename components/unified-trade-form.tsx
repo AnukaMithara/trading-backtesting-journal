@@ -41,7 +41,7 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  // Fetch brokers and assets
+  // Fetch dynamic data from settings
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers"],
     queryFn: async () => {
@@ -56,6 +56,24 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
     queryFn: async () => {
       const response = await fetch("/api/assets")
       if (!response.ok) throw new Error("Failed to fetch assets")
+      return response.json()
+    },
+  })
+
+  const { data: strategies = [] } = useQuery({
+    queryKey: ["strategies"],
+    queryFn: async () => {
+      const response = await fetch("/api/strategies")
+      if (!response.ok) throw new Error("Failed to fetch strategies")
+      return response.json()
+    },
+  })
+
+  const { data: customFields = [] } = useQuery({
+    queryKey: ["customFields"],
+    queryFn: async () => {
+      const response = await fetch("/api/custom-fields")
+      if (!response.ok) throw new Error("Failed to fetch custom fields")
       return response.json()
     },
   })
@@ -276,7 +294,10 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
                   <SelectContent>
                     {assets.map((asset: any) => (
                       <SelectItem key={asset._id} value={asset.symbol}>
-                        {asset.symbol} - {asset.name}
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono">{asset.symbol}</span>
+                          <span className="text-muted-foreground">- {asset.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -293,12 +314,57 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
                   <SelectContent>
                     {brokers.map((broker: any) => (
                       <SelectItem key={broker._id} value={broker.name}>
-                        {broker.name}
+                        <div className="flex items-center gap-2">
+                          <span>{broker.name}</span>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {broker.type}
+                          </Badge>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {errors.broker && <p className="text-sm text-red-500">{errors.broker.message}</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Strategy Selection */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">Strategy & Setup</h3>
+              <Separator className="flex-1" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Trading Strategy</Label>
+                <Select onValueChange={(value) => setValue("setup", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select strategy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {strategies.map((strategy: any) => (
+                      <SelectItem key={strategy._id} value={strategy.name}>
+                        <div className="flex items-center gap-2">
+                          <span>{strategy.name}</span>
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {strategy.category}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <RequiredLabel>Setup Description</RequiredLabel>
+                <Textarea
+                  {...register("setup")}
+                  placeholder="Describe your trade setup, entry criteria, and reasoning..."
+                  rows={3}
+                />
+                {errors.setup && <p className="text-sm text-red-500">{errors.setup.message}</p>}
               </div>
             </div>
           </div>
@@ -522,23 +588,13 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
             </div>
           </div>
 
-          {/* Strategy & Psychology Section */}
+          {/* Psychology Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Strategy & Psychology</h3>
+              <h3 className="text-lg font-semibold">Psychology & Money Management</h3>
               <Separator className="flex-1" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <RequiredLabel>Setup Description</RequiredLabel>
-                <Textarea
-                  {...register("setup")}
-                  placeholder="Describe your trade setup, entry criteria, and reasoning..."
-                  rows={3}
-                />
-                {errors.setup && <p className="text-sm text-red-500">{errors.setup.message}</p>}
-              </div>
-
               <div>
                 <Label>Money Management Strategy</Label>
                 <Textarea
@@ -548,48 +604,91 @@ export function UnifiedTradeForm({ onSuccess }: UnifiedTradeFormProps) {
                 />
               </div>
 
-              <div>
-                <RequiredLabel>Pre-Market Mentality</RequiredLabel>
-                <Select
-                  onValueChange={(value) => setValue("preMarketMentality", value as any)}
-                  defaultValue={formValues.preMarketMentality}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="confident">Confident</SelectItem>
-                    <SelectItem value="anxious">Anxious</SelectItem>
-                    <SelectItem value="excited">Excited</SelectItem>
-                    <SelectItem value="calm">Calm</SelectItem>
-                    <SelectItem value="uncertain">Uncertain</SelectItem>
-                    <SelectItem value="focused">Focused</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="space-y-4">
+                <div>
+                  <RequiredLabel>Pre-Market Mentality</RequiredLabel>
+                  <Select
+                    onValueChange={(value) => setValue("preMarketMentality", value as any)}
+                    defaultValue={formValues.preMarketMentality}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="confident">Confident</SelectItem>
+                      <SelectItem value="anxious">Anxious</SelectItem>
+                      <SelectItem value="excited">Excited</SelectItem>
+                      <SelectItem value="calm">Calm</SelectItem>
+                      <SelectItem value="uncertain">Uncertain</SelectItem>
+                      <SelectItem value="focused">Focused</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <RequiredLabel>Post-Market Mentality</RequiredLabel>
-                <Select
-                  onValueChange={(value) => setValue("postMarketMentality", value as any)}
-                  defaultValue={formValues.postMarketMentality}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="satisfied">Satisfied</SelectItem>
-                    <SelectItem value="disappointed">Disappointed</SelectItem>
-                    <SelectItem value="relieved">Relieved</SelectItem>
-                    <SelectItem value="frustrated">Frustrated</SelectItem>
-                    <SelectItem value="proud">Proud</SelectItem>
-                    <SelectItem value="regretful">Regretful</SelectItem>
-                    <SelectItem value="neutral">Neutral</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <RequiredLabel>Post-Market Mentality</RequiredLabel>
+                  <Select
+                    onValueChange={(value) => setValue("postMarketMentality", value as any)}
+                    defaultValue={formValues.postMarketMentality}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="satisfied">Satisfied</SelectItem>
+                      <SelectItem value="disappointed">Disappointed</SelectItem>
+                      <SelectItem value="relieved">Relieved</SelectItem>
+                      <SelectItem value="frustrated">Frustrated</SelectItem>
+                      <SelectItem value="proud">Proud</SelectItem>
+                      <SelectItem value="regretful">Regretful</SelectItem>
+                      <SelectItem value="neutral">Neutral</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Custom Fields Section */}
+          {customFields.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Additional Information</h3>
+                <Separator className="flex-1" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {customFields.map((field: any) => (
+                  <div key={field._id}>
+                    <Label className="flex items-center gap-1">
+                      {field.label}
+                      {field.required && <span className="text-red-500">*</span>}
+                    </Label>
+                    {field.type === "select" && (
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {field.options?.map((option: string) => (
+                            <SelectItem key={option} value={option}>
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {field.type === "text" && (
+                      <Input placeholder={field.description || `Enter ${field.label.toLowerCase()}`} />
+                    )}
+                    {field.type === "number" && (
+                      <Input type="number" placeholder={field.description || `Enter ${field.label.toLowerCase()}`} />
+                    )}
+                    {field.description && <p className="text-xs text-muted-foreground mt-1">{field.description}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Reports & Documentation Section */}
           <div className="space-y-4">
