@@ -2,30 +2,29 @@
 
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { EquityCurveChart } from "@/components/charts/equity-curve-chart"
-import { PerformanceByCategoryChart } from "@/components/charts/performance-by-category-chart"
-import { DrawdownChart } from "@/components/charts/drawdown-chart"
-import { WinLossByDayChart } from "@/components/charts/win-loss-by-day-chart"
-import { PsychologicalAnalysisChart } from "@/components/charts/psychological-analysis-chart"
-import { EnhancedFilterPanel } from "@/components/enhanced-filter-panel"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, TrendingUp, Brain, Calendar, Download } from "lucide-react"
+import { GlobalFilterPanel } from "@/components/analytics/global-filter-panel"
+import { DailyPnLCalendar } from "@/components/analytics/daily-pnl-calendar"
+import { PerformanceMetrics } from "@/components/analytics/performance-metrics"
+import { StrategyPerformance } from "@/components/analytics/strategy-performance"
+import { PairPerformance } from "@/components/analytics/pair-performance"
+import { BacktestTable } from "@/components/backtest-table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Download, BarChart3, Calendar, Target, Coins, Table } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
 export default function AnalyticsPage() {
   const [globalFilters, setGlobalFilters] = useState<{
     dateRange?: DateRange
-    assetClass?: string
-    broker?: string
     strategy?: string
-    emotion?: string
-    outcome?: string
-    tradeType?: string
+    broker?: string
     asset?: string
+    tradeType?: string
+    outcome?: string
     minAmount?: number
     maxAmount?: number
-    searchTerm?: string
+    riskLevel?: string
   }>({})
 
   const { data: backtests = [], isLoading } = useQuery({
@@ -37,60 +36,12 @@ export default function AnalyticsPage() {
     },
   })
 
-  // Filter backtests based on global filters
-  const filteredBacktests = backtests.filter((backtest: any) => {
-    // Date range filter
-    if (globalFilters.dateRange?.from || globalFilters.dateRange?.to) {
-      const tradeDate = new Date(backtest.entryDateTime)
-      if (globalFilters.dateRange.from && tradeDate < globalFilters.dateRange.from) return false
-      if (globalFilters.dateRange.to && tradeDate > globalFilters.dateRange.to) return false
-    }
-
-    // Search term filter
-    if (globalFilters.searchTerm) {
-      const searchLower = globalFilters.searchTerm.toLowerCase()
-      const searchableFields = [
-        backtest.tradeId,
-        backtest.asset,
-        backtest.strategyName,
-        backtest.broker,
-        backtest.tradeNotes,
-        ...(backtest.tags || []),
-      ]
-      if (!searchableFields.some((field) => field?.toLowerCase().includes(searchLower))) {
-        return false
-      }
-    }
-
-    // Other filters
-    if (globalFilters.assetClass && backtest.assetClass !== globalFilters.assetClass) return false
-    if (globalFilters.broker && backtest.broker !== globalFilters.broker) return false
-    if (globalFilters.strategy && backtest.strategyName !== globalFilters.strategy) return false
-    if (globalFilters.tradeType && backtest.tradeType !== globalFilters.tradeType) return false
-    if (globalFilters.asset && backtest.asset !== globalFilters.asset) return false
-    if (globalFilters.emotion && backtest.preTradeEmotion !== globalFilters.emotion) return false
-
-    // Outcome filter
-    if (globalFilters.outcome) {
-      const profitLoss = backtest.profitLoss || 0
-      if (globalFilters.outcome === "win" && profitLoss <= 0) return false
-      if (globalFilters.outcome === "loss" && profitLoss >= 0) return false
-      if (globalFilters.outcome === "breakeven" && profitLoss !== 0) return false
-    }
-
-    // Amount range filters
-    if (globalFilters.minAmount !== undefined && (backtest.profitLoss || 0) < globalFilters.minAmount) return false
-    if (globalFilters.maxAmount !== undefined && (backtest.profitLoss || 0) > globalFilters.maxAmount) return false
-
-    return true
-  })
-
   if (isLoading) {
     return (
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">Loading comprehensive trading analytics...</p>
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight">Analytics Dashboard</h1>
+          <p className="text-muted-foreground mt-2">Loading comprehensive trading analytics...</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
@@ -105,164 +56,114 @@ export default function AnalyticsPage() {
 
   // Get unique values for filters
   const availableOptions = {
-    assetClasses: [...new Set(backtests.map((b: any) => b.assetClass).filter(Boolean))],
-    brokers: [...new Set(backtests.map((b: any) => b.broker).filter(Boolean))],
     strategies: [...new Set(backtests.map((b: any) => b.strategyName).filter(Boolean))],
-    emotions: [...new Set(backtests.map((b: any) => b.preTradeEmotion).filter(Boolean))],
+    brokers: [...new Set(backtests.map((b: any) => b.broker).filter(Boolean))],
     assets: [...new Set(backtests.map((b: any) => b.asset).filter(Boolean))],
     tradeTypes: [...new Set(backtests.map((b: any) => b.tradeType).filter(Boolean))],
+    riskLevels: [...new Set(backtests.map((b: any) => b.riskLevel).filter(Boolean))],
   }
 
   const exportAnalytics = () => {
     const analyticsData = {
-      totalTrades: filteredBacktests.length,
-      winRate:
-        filteredBacktests.length > 0
-          ? (
-              (filteredBacktests.filter((t: any) => (t.profitLoss || 0) > 0).length / filteredBacktests.length) *
-              100
-            ).toFixed(1)
-          : 0,
-      totalPL: filteredBacktests.reduce((sum: number, t: any) => sum + (t.profitLoss || 0), 0).toFixed(2),
-      avgDiscipline:
-        filteredBacktests.length > 0
-          ? (
-              filteredBacktests.reduce((sum: number, t: any) => sum + (t.disciplineLevel || 0), 0) /
-              filteredBacktests.length
-            ).toFixed(1)
-          : 0,
-      activeDays: new Set(filteredBacktests.map((t: any) => new Date(t.entryDateTime).toDateString())).size,
-      dateRange: globalFilters.dateRange
-        ? `${globalFilters.dateRange.from?.toLocaleDateString()} - ${globalFilters.dateRange.to?.toLocaleDateString()}`
-        : "All time",
+      totalTrades: backtests.length,
+      filters: globalFilters,
       generatedAt: new Date().toISOString(),
+      data: backtests,
     }
 
     const blob = new Blob([JSON.stringify(analyticsData, null, 2)], { type: "application/json" })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `analytics-${new Date().toISOString().split("T")[0]}.json`
+    a.download = `analytics-export-${new Date().toISOString().split("T")[0]}.json`
     a.click()
     window.URL.revokeObjectURL(url)
   }
 
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Advanced Trading Analytics
+          Advanced Trading Analytics Dashboard
         </h1>
         <p className="text-muted-foreground mt-2">
-          Comprehensive performance analysis with customizable filters and insights
+          Comprehensive performance analysis with global filtering and real-time insights
         </p>
       </div>
 
       {/* Global Filter Panel */}
-      <EnhancedFilterPanel
-        title="Analytics"
+      <GlobalFilterPanel
         filters={globalFilters}
         onFiltersChange={setGlobalFilters}
         availableOptions={availableOptions}
-        showAdvanced={true}
       />
-
-      {/* Quick Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">Total Trades</CardTitle>
-            <BarChart3 className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-800">{filteredBacktests.length}</div>
-            <p className="text-xs text-blue-600">
-              {backtests.length > filteredBacktests.length && `of ${backtests.length} total`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">Win Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-800">
-              {filteredBacktests.length > 0
-                ? (
-                    (filteredBacktests.filter((t: any) => (t.profitLoss || 0) > 0).length / filteredBacktests.length) *
-                    100
-                  ).toFixed(1)
-                : 0}
-              %
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">Total P&L</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-800">
-              ${filteredBacktests.reduce((sum: number, t: any) => sum + (t.profitLoss || 0), 0).toFixed(2)}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700">Avg Discipline</CardTitle>
-            <Brain className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-800">
-              {filteredBacktests.length > 0
-                ? (
-                    filteredBacktests.reduce((sum: number, t: any) => sum + (t.disciplineLevel || 0), 0) /
-                    filteredBacktests.length
-                  ).toFixed(1)
-                : 0}
-              /10
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-teal-50 to-cyan-50 border-teal-200">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-teal-700">Active Days</CardTitle>
-            <Calendar className="h-4 w-4 text-teal-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-teal-800">
-              {new Set(filteredBacktests.map((t: any) => new Date(t.entryDateTime).toDateString())).size}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Export Button */}
       <div className="flex justify-end">
         <Button onClick={exportAnalytics} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
-          Export Analytics
+          Export Analytics Data
         </Button>
       </div>
 
-      {/* Charts */}
-      <div className="space-y-8">
-        <EquityCurveChart data={filteredBacktests} availableOptions={availableOptions} />
+      {/* Analytics Tabs */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-6">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Calendar
+          </TabsTrigger>
+          <TabsTrigger value="strategies" className="flex items-center gap-2">
+            <Target className="h-4 w-4" />
+            Strategies
+          </TabsTrigger>
+          <TabsTrigger value="pairs" className="flex items-center gap-2">
+            <Coins className="h-4 w-4" />
+            Pairs
+          </TabsTrigger>
+          <TabsTrigger value="trades" className="flex items-center gap-2">
+            <Table className="h-4 w-4" />
+            Trades
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Metrics
+          </TabsTrigger>
+        </TabsList>
 
-        <PerformanceByCategoryChart data={filteredBacktests} availableOptions={availableOptions} />
+        <TabsContent value="overview" className="space-y-6">
+          <PerformanceMetrics data={backtests} filters={globalFilters} />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <StrategyPerformance data={backtests} filters={globalFilters} />
+            <PairPerformance data={backtests} filters={globalFilters} />
+          </div>
+        </TabsContent>
 
-        <DrawdownChart data={filteredBacktests} availableOptions={availableOptions} />
+        <TabsContent value="calendar" className="space-y-6">
+          <DailyPnLCalendar data={backtests} filters={globalFilters} />
+        </TabsContent>
 
-        <WinLossByDayChart data={filteredBacktests} availableOptions={availableOptions} />
+        <TabsContent value="strategies" className="space-y-6">
+          <StrategyPerformance data={backtests} filters={globalFilters} />
+        </TabsContent>
 
-        <PsychologicalAnalysisChart data={filteredBacktests} availableOptions={availableOptions} />
-      </div>
+        <TabsContent value="pairs" className="space-y-6">
+          <PairPerformance data={backtests} filters={globalFilters} />
+        </TabsContent>
+
+        <TabsContent value="trades" className="space-y-6">
+          <BacktestTable />
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-6">
+          <PerformanceMetrics data={backtests} filters={globalFilters} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
