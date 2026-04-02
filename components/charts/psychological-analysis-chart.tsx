@@ -34,7 +34,7 @@ const EMOTION_COLORS = {
 }
 
 export function PsychologicalAnalysisChart({ data, availableOptions }: PsychologicalAnalysisChartProps) {
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [analysisType, setAnalysisType] = useState("preTradeEmotion")
 
   const filteredData = data.filter((item) => {
@@ -159,9 +159,10 @@ export function PsychologicalAnalysisChart({ data, availableOptions }: Psycholog
                 <XAxis dataKey="emotion" stroke="#be185d" />
                 <YAxis stroke="#be185d" />
                 <Tooltip
-                  formatter={(value: number, name: string) => {
-                    if (name === "winRate") return [`${value.toFixed(1)}%`, "Win Rate"]
-                    if (name === "avgPL") return [`$${value.toFixed(2)}`, "Avg P&L"]
+                  formatter={(value, name) => {
+                    const n = Number(value)
+                    if (name === "winRate") return [`${n.toFixed(1)}%`, "Win Rate"]
+                    if (name === "avgPL") return [`$${n.toFixed(2)}`, "Avg P&L"]
                     return [value, name]
                   }}
                   contentStyle={{
@@ -172,7 +173,7 @@ export function PsychologicalAnalysisChart({ data, availableOptions }: Psycholog
                 />
                 <Bar dataKey="winRate" name="winRate" radius={[4, 4, 0, 0]}>
                   {emotionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={EMOTION_COLORS[entry.emotion] || "#6b7280"} />
+                    <Cell key={`cell-${index}`} fill={EMOTION_COLORS[entry.emotion as keyof typeof EMOTION_COLORS] || "#6b7280"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -195,9 +196,10 @@ export function PsychologicalAnalysisChart({ data, availableOptions }: Psycholog
                 <XAxis dataKey="discipline" stroke="#1d4ed8" />
                 <YAxis stroke="#1d4ed8" />
                 <Tooltip
-                  formatter={(value: number, name: string) => {
-                    if (name === "winRate") return [`${value.toFixed(1)}%`, "Win Rate"]
-                    if (name === "avgPL") return [`$${value.toFixed(2)}`, "Avg P&L"]
+                  formatter={(value, name) => {
+                    const n = Number(value)
+                    if (name === "winRate") return [`${n.toFixed(1)}%`, "Win Rate"]
+                    if (name === "avgPL") return [`$${n.toFixed(2)}`, "Avg P&L"]
                     return [value, name]
                   }}
                   contentStyle={{

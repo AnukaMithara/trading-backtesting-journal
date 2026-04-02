@@ -402,7 +402,7 @@ export function BacktestTable() {
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                                onClick={() => setTradeToDelete({ id: backtest._id, tradeId: backtest.tradeId })}
+                                onClick={() => setTradeToDelete({ id: backtest._id ?? "", tradeId: backtest.tradeId ?? "" })}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

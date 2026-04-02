@@ -144,7 +144,7 @@ export function FilterPanel({ title, filters, onFiltersChange, availableOptions 
                   if (!value) return null
                   return (
                     <Badge key={key} variant="outline" className="flex items-center gap-1">
-                      {key}: {value}
+                      {key}: {typeof value === "string" ? value : JSON.stringify(value)}
                       <X className="h-3 w-3 cursor-pointer" onClick={() => updateFilter(key, "all")} />
                     </Badge>
                   )

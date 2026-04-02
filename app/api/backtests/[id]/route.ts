@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { type NextRequest, NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
@@ -28,7 +30,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json()
     const validatedData = backtestSchema.parse(body)
 
-    const profitLoss = calculateProfitLoss(validatedData.entry, validatedData.exit, validatedData.positionSize)
+    const profitLoss = calculateProfitLoss(validatedData.entryPrice, validatedData.exitPrice ?? 0, validatedData.positionSize)
 
     const client = await clientPromise
     const db = client.db("backtesting")
@@ -39,7 +41,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       {
         $set: {
           ...validatedData,
-          date: new Date(validatedData.date),
           profitLoss,
           updatedAt: new Date(),
         },

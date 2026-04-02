@@ -107,7 +107,7 @@ export function PairPerformance({ data, filters }: PairPerformanceProps) {
                   <XAxis dataKey="pair" stroke="#64748b" fontSize={12} angle={-45} textAnchor="end" height={60} />
                   <YAxis stroke="#64748b" />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Total P&L"]}
+                    formatter={(value) => [formatCurrency(Number(value)), "Total P&L"]}
                     contentStyle={{
                       backgroundColor: "#f8fafc",
                       border: "1px solid #e2e8f0",
@@ -142,7 +142,7 @@ export function PairPerformance({ data, filters }: PairPerformanceProps) {
                     label={({ name, value }) => `${name}: ${value}`}
                   />
                   <Tooltip
-                    formatter={(value: number) => [value, "Trades"]}
+                    formatter={(value) => [value, "Trades"]}
                     contentStyle={{
                       backgroundColor: "#f8fafc",
                       border: "1px solid #e2e8f0",

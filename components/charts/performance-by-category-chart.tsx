@@ -19,7 +19,7 @@ interface PerformanceByCategoryChartProps {
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#84cc16", "#f97316"]
 
 export function PerformanceByCategoryChart({ data, availableOptions }: PerformanceByCategoryChartProps) {
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [categoryType, setCategoryType] = useState("assetClass")
 
   const filteredData = data.filter((item) => {
@@ -94,9 +94,10 @@ export function PerformanceByCategoryChart({ data, availableOptions }: Performan
               <XAxis dataKey="category" stroke="#7c3aed" />
               <YAxis stroke="#7c3aed" />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  if (name === "profitLoss") return [`$${value.toFixed(2)}`, "Total P&L"]
-                  if (name === "winRate") return [`${value.toFixed(1)}%`, "Win Rate"]
+                formatter={(value, name) => {
+                  const n = Number(value)
+                  if (name === "profitLoss") return [`$${n.toFixed(2)}`, "Total P&L"]
+                  if (name === "winRate") return [`${n.toFixed(1)}%`, "Win Rate"]
                   return [value, name]
                 }}
                 contentStyle={{

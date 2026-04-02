@@ -50,7 +50,7 @@ export function AnalyticsCharts() {
               <YAxis />
               <Tooltip
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                formatter={(value: number) => [`$${value.toFixed(2)}`, "Equity"]}
+                formatter={(value) => [`$${Number(value).toFixed(2)}`, "Equity"]}
               />
               <Line type="monotone" dataKey="equity" stroke="#8884d8" strokeWidth={2} dot={false} />
             </LineChart>
@@ -69,8 +69,12 @@ export function AnalyticsCharts() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
-              <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "P&L"]} />
-              <Bar dataKey="profitLoss" fill={(entry) => (entry.profitLoss >= 0 ? "#00C49F" : "#FF8042")} />
+              <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, "P&L"]} />
+              <Bar dataKey="profitLoss">
+                {monthlyPerformance?.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={entry.profitLoss >= 0 ? "#00C49F" : "#FF8042"} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -89,7 +93,7 @@ export function AnalyticsCharts() {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ strategy, profitLoss }) => `${strategy}: $${profitLoss.toFixed(2)}`}
+                label={({ strategy, profitLoss }: any) => `${strategy}: $${Number(profitLoss).toFixed(2)}`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="profitLoss"
@@ -98,7 +102,7 @@ export function AnalyticsCharts() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, "P&L"]} />
+              <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, "P&L"]} />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>

@@ -20,7 +20,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const DAY_COLORS = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e", "#06b6d4", "#8b5cf6"]
 
 export function WinLossByDayChart({ data, availableOptions }: WinLossByDayChartProps) {
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
 
   const filteredData = data.filter((item) => {
     if (filters.assetClass && item.assetClass !== filters.assetClass) return false
@@ -92,9 +92,10 @@ export function WinLossByDayChart({ data, availableOptions }: WinLossByDayChartP
               <XAxis dataKey="day" stroke="#4f46e5" />
               <YAxis stroke="#4f46e5" />
               <Tooltip
-                formatter={(value: number, name: string) => {
-                  if (name === "winRate") return [`${value.toFixed(1)}%`, "Win Rate"]
-                  if (name === "totalPL") return [`$${value.toFixed(2)}`, "Total P&L"]
+                formatter={(value, name) => {
+                  const n = Number(value)
+                  if (name === "winRate") return [`${n.toFixed(1)}%`, "Win Rate"]
+                  if (name === "totalPL") return [`$${n.toFixed(2)}`, "Total P&L"]
                   return [value, name]
                 }}
                 contentStyle={{

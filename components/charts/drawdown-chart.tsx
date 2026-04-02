@@ -17,7 +17,7 @@ interface DrawdownChartProps {
 }
 
 export function DrawdownChart({ data, availableOptions }: DrawdownChartProps) {
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
 
   const filteredData = data.filter((item) => {
     if (filters.assetClass && item.assetClass !== filters.assetClass) return false
@@ -100,9 +100,10 @@ export function DrawdownChart({ data, availableOptions }: DrawdownChartProps) {
               <YAxis stroke="#dc2626" />
               <Tooltip
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                formatter={(value: number, name: string) => {
-                  if (name === "drawdown") return [`$${Math.abs(value).toFixed(2)}`, "Drawdown"]
-                  if (name === "drawdownPercent") return [`${Math.abs(value).toFixed(2)}%`, "Drawdown %"]
+                formatter={(value, name) => {
+                  const n = Number(value)
+                  if (name === "drawdown") return [`$${Math.abs(n).toFixed(2)}`, "Drawdown"]
+                  if (name === "drawdownPercent") return [`${Math.abs(n).toFixed(2)}%`, "Drawdown %"]
                   return [value, name]
                 }}
                 contentStyle={{

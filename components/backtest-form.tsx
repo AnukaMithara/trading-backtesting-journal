@@ -139,9 +139,9 @@ export function BacktestForm({ onSuccess }: BacktestFormProps) {
             </div>
 
             <div>
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" {...register("date")} />
-              {errors.date && <p className="text-sm text-red-500">{errors.date.message}</p>}
+              <Label htmlFor="entryDateTime">Date/Time</Label>
+              <Input id="entryDateTime" type="datetime-local" {...register("entryDateTime")} />
+              {errors.entryDateTime && <p className="text-sm text-red-500">{errors.entryDateTime.message}</p>}
             </div>
 
             <div>
@@ -151,33 +151,33 @@ export function BacktestForm({ onSuccess }: BacktestFormProps) {
             </div>
 
             <div>
-              <Label htmlFor="strategy">Strategy</Label>
-              <Input id="strategy" {...register("strategy")} placeholder="e.g., Moving Average, RSI" />
-              {errors.strategy && <p className="text-sm text-red-500">{errors.strategy.message}</p>}
+              <Label htmlFor="strategyName">Strategy</Label>
+              <Input id="strategyName" {...register("strategyName")} placeholder="e.g., Moving Average, RSI" />
+              {errors.strategyName && <p className="text-sm text-red-500">{errors.strategyName.message}</p>}
             </div>
 
             <div>
-              <Label htmlFor="entry">Entry Price</Label>
+              <Label htmlFor="entryPrice">Entry Price</Label>
               <Input
-                id="entry"
+                id="entryPrice"
                 type="number"
                 step="0.01"
-                {...register("entry", { valueAsNumber: true })}
+                {...register("entryPrice", { valueAsNumber: true })}
                 placeholder="0.00"
               />
-              {errors.entry && <p className="text-sm text-red-500">{errors.entry.message}</p>}
+              {errors.entryPrice && <p className="text-sm text-red-500">{errors.entryPrice.message}</p>}
             </div>
 
             <div>
-              <Label htmlFor="exit">Exit Price</Label>
+              <Label htmlFor="exitPrice">Exit Price</Label>
               <Input
-                id="exit"
+                id="exitPrice"
                 type="number"
                 step="0.01"
-                {...register("exit", { valueAsNumber: true })}
+                {...register("exitPrice", { valueAsNumber: true })}
                 placeholder="0.00"
               />
-              {errors.exit && <p className="text-sm text-red-500">{errors.exit.message}</p>}
+              {errors.exitPrice && <p className="text-sm text-red-500">{errors.exitPrice.message}</p>}
             </div>
 
             <div>
@@ -195,7 +195,7 @@ export function BacktestForm({ onSuccess }: BacktestFormProps) {
 
           <div>
             <Label htmlFor="notes">Notes</Label>
-            <Textarea id="notes" {...register("notes")} placeholder="Trading observations and notes..." rows={3} />
+            <Textarea id="tradeNotes" {...register("tradeNotes")} placeholder="Trading observations and notes..." rows={3} />
           </div>
 
           <div>

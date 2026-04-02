@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import {
@@ -16,7 +18,7 @@ export async function GET() {
     const db = client.db("backtesting")
     const collection = db.collection("backtests")
 
-    const backtests = await collection.find({}).toArray()
+    const backtests = (await collection.find({}).toArray()) as any[]
 
     const metrics = calculateMetrics(backtests)
     const advancedMetrics = calculateAdvancedMetrics(backtests)

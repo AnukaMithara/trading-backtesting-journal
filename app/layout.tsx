@@ -1,12 +1,9 @@
 import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { Providers } from "./providers"
 import { Toaster } from "@/components/ui/toaster"
 import { Navigation } from "@/components/navigation"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Trading Backtest Journal",
@@ -41,7 +38,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <Providers>
           <div className="min-h-screen bg-background">
             <Navigation />

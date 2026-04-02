@@ -17,7 +17,7 @@ interface EquityCurveChartProps {
 }
 
 export function EquityCurveChart({ data, availableOptions }: EquityCurveChartProps) {
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
 
   // Filter data based on current filters
   const filteredData = data.filter((item) => {
@@ -95,8 +95,8 @@ export function EquityCurveChart({ data, availableOptions }: EquityCurveChartPro
               <YAxis stroke="#6366f1" />
               <Tooltip
                 labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                formatter={(value: number, name: string) => [
-                  `$${value.toFixed(2)}`,
+                formatter={(value, name) => [
+                  `$${Number(value).toFixed(2)}`,
                   name === "equity" ? "Portfolio Value" : name,
                 ]}
                 contentStyle={{

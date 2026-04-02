@@ -134,7 +134,7 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
       Object.keys(lastTrade).forEach((key) => {
         const typedKey = key as keyof BacktestFormData
         if (!EXCLUDE_FROM_PREFILL.includes(typedKey)) {
-          prefillValues[typedKey] = lastTrade[typedKey]
+          ;(prefillValues as any)[typedKey] = (lastTrade as any)[typedKey]
         }
       })
 
@@ -164,13 +164,14 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
     const lastTrade = getLastSuccessfulTrade()
     if (lastTrade && usePrefill) {
       // Set tags from last trade if available
-      if (lastTrade.tags && Array.isArray(lastTrade.tags)) {
-        setTags(lastTrade.tags)
+      const lastTradeAny = lastTrade as any
+      if (lastTradeAny.tags && Array.isArray(lastTradeAny.tags)) {
+        setTags(lastTradeAny.tags)
       }
 
       // Set indicators from last trade if available
-      if (lastTrade.indicatorsUsed && Array.isArray(lastTrade.indicatorsUsed)) {
-        setIndicators(lastTrade.indicatorsUsed)
+      if (lastTradeAny.indicatorsUsed && Array.isArray(lastTradeAny.indicatorsUsed)) {
+        setIndicators(lastTradeAny.indicatorsUsed)
       }
 
       setHasPrefilled(true)
@@ -209,7 +210,7 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
         Object.keys(lastTrade).forEach((key) => {
           const typedKey = key as keyof BacktestFormData
           if (!EXCLUDE_FROM_PREFILL.includes(typedKey)) {
-            prefillValues[typedKey] = lastTrade[typedKey]
+            ;(prefillValues as any)[typedKey] = (lastTrade as any)[typedKey]
           }
         })
 
@@ -217,12 +218,13 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
         reset({ ...getValues(), ...prefillValues })
 
         // Set tags and indicators
-        if (lastTrade.tags && Array.isArray(lastTrade.tags)) {
-          setTags(lastTrade.tags)
+        const lt = lastTrade as any
+        if (lt.tags && Array.isArray(lt.tags)) {
+          setTags(lt.tags)
         }
 
-        if (lastTrade.indicatorsUsed && Array.isArray(lastTrade.indicatorsUsed)) {
-          setIndicators(lastTrade.indicatorsUsed)
+        if (lt.indicatorsUsed && Array.isArray(lt.indicatorsUsed)) {
+          setIndicators(lt.indicatorsUsed)
         }
 
         setHasPrefilled(true)
@@ -293,8 +295,8 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
   }, [])
 
   // Save draft on every form change (debounced via useEffect dependency on formValues)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (createBacktest.isSuccess) return // Don't save after successful submit
     try {
       const draft = {
         values: formValues,
@@ -306,7 +308,8 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
     } catch {
       // Ignore storage errors (e.g. private browsing quota exceeded)
     }
-  }, [formValues, tags, indicators, currentStep, createBacktest.isSuccess])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, tags, indicators, currentStep])
 
   const clearDraft = () => {
     try {
@@ -376,7 +379,7 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
       console.log("Trade created successfully:", data)
 
       // Save the successful trade data for future pre-fill
-      saveLastSuccessfulTrade({ ...variables, tags, indicatorsUsed: indicators })
+      saveLastSuccessfulTrade({ ...variables, tags, indicatorsUsed: indicators } as any)
 
       // Clear autosave draft on success
       clearDraft()
@@ -570,12 +573,13 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
     reset(duplicatedTrade)
 
     // Set tags and indicators
-    if (lastTrade.tags && Array.isArray(lastTrade.tags)) {
-      setTags([...lastTrade.tags])
+    const lastTradeExt = lastTrade as any
+    if (lastTradeExt.tags && Array.isArray(lastTradeExt.tags)) {
+      setTags([...lastTradeExt.tags])
     }
 
-    if (lastTrade.indicatorsUsed && Array.isArray(lastTrade.indicatorsUsed)) {
-      setIndicators([...lastTrade.indicatorsUsed])
+    if (lastTradeExt.indicatorsUsed && Array.isArray(lastTradeExt.indicatorsUsed)) {
+      setIndicators([...lastTradeExt.indicatorsUsed])
     }
 
     setHasPrefilled(true)

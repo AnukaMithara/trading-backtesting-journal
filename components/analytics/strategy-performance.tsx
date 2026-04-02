@@ -98,8 +98,8 @@ export function StrategyPerformance({ data, filters }: StrategyPerformanceProps)
               <XAxis dataKey="strategy" stroke="#64748b" fontSize={12} angle={-45} textAnchor="end" height={80} />
               <YAxis stroke="#64748b" />
               <Tooltip
-                formatter={(value: number, name: string) => [
-                  name === "totalPnL" ? formatCurrency(value) : value,
+                formatter={(value, name) => [
+                  name === "totalPnL" ? formatCurrency(Number(value)) : value,
                   name === "totalPnL" ? "Total P&L" : name,
                 ]}
                 contentStyle={{
