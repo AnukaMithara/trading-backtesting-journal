@@ -239,6 +239,236 @@ export function calculateMetrics(backtests: Backtest[]): BacktestMetrics {
   }
 }
 
+// ---- Advanced metrics ----
+
+export interface AdvancedMetrics {
+  sortinoRatio: number
+  calmarRatio: number
+  cagr: number
+  currentWinStreak: number
+  currentLossStreak: number
+  maxWinStreak: number
+  maxLossStreak: number
+  avgRMultiple: number
+  expectancyPerTrade: number
+}
+
+export function calculateAdvancedMetrics(backtests: Backtest[]): AdvancedMetrics {
+  if (backtests.length === 0) {
+    return {
+      sortinoRatio: 0,
+      calmarRatio: 0,
+      cagr: 0,
+      currentWinStreak: 0,
+      currentLossStreak: 0,
+      maxWinStreak: 0,
+      maxLossStreak: 0,
+      avgRMultiple: 0,
+      expectancyPerTrade: 0,
+    }
+  }
+
+  const sorted = [...backtests].sort(
+    (a, b) => new Date(a.entryDateTime).getTime() - new Date(b.entryDateTime).getTime(),
+  )
+
+  // Sortino Ratio — uses only downside deviation (negative returns)
+  const returns = sorted.map((t) => (t.profitLoss || 0) / Math.max(t.accountBalanceBefore || 1, 1))
+  const avgReturn = returns.reduce((s, r) => s + r, 0) / returns.length
+  const negativeReturns = returns.filter((r) => r < 0)
+  const downsideDeviation =
+    negativeReturns.length > 0
+      ? Math.sqrt(negativeReturns.reduce((s, r) => s + r * r, 0) / negativeReturns.length)
+      : 0
+  const sortinoRatio = downsideDeviation > 0 ? (avgReturn / downsideDeviation) * Math.sqrt(252) : 0
+
+  // Max drawdown for Calmar ratio
+  let runningTotal = 0
+  let peak = 0
+  let maxDrawdown = 0
+  for (const trade of sorted) {
+    runningTotal += trade.profitLoss || 0
+    if (runningTotal > peak) peak = runningTotal
+    const dd = peak - runningTotal
+    if (dd > maxDrawdown) maxDrawdown = dd
+  }
+
+  const totalPnL = sorted.reduce((s, t) => s + (t.profitLoss || 0), 0)
+
+  // CAGR — compound annual growth rate based on date range
+  const firstDate = new Date(sorted[0].entryDateTime)
+  const lastDate = new Date(sorted[sorted.length - 1].entryDateTime)
+  const years = Math.max((lastDate.getTime() - firstDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000), 1 / 252)
+  const initialEquity = sorted[0].accountBalanceBefore || 1
+  const finalEquity = initialEquity + totalPnL
+  const cagr = initialEquity > 0 && finalEquity > 0 ? (Math.pow(finalEquity / initialEquity, 1 / years) - 1) * 100 : 0
+
+  // Calmar ratio = annualised return / max drawdown
+  const annualisedReturn = totalPnL / years
+  const calmarRatio = maxDrawdown > 0 ? annualisedReturn / maxDrawdown : 0
+
+  // Win/Loss streaks
+  let currentWinStreak = 0
+  let currentLossStreak = 0
+  let maxWinStreak = 0
+  let maxLossStreak = 0
+  let runWin = 0
+  let runLoss = 0
+
+  for (const trade of sorted) {
+    const pl = trade.profitLoss || 0
+    if (pl > 0) {
+      runWin++
+      runLoss = 0
+    } else if (pl < 0) {
+      runLoss++
+      runWin = 0
+    } else {
+      runWin = 0
+      runLoss = 0
+    }
+    if (runWin > maxWinStreak) maxWinStreak = runWin
+    if (runLoss > maxLossStreak) maxLossStreak = runLoss
+  }
+  // Current streaks are the trailing run counts after the last trade
+  currentWinStreak = runWin
+  currentLossStreak = runLoss
+
+  // R-Multiple: actual P&L / risk amount
+  const tradesWithR = sorted.filter((t) => t.riskAmount && t.riskAmount > 0)
+  const avgRMultiple =
+    tradesWithR.length > 0
+      ? tradesWithR.reduce((s, t) => s + (t.profitLoss || 0) / (t.riskAmount as number), 0) / tradesWithR.length
+      : 0
+
+  // Expectancy per trade ($ per trade)
+  const wins = sorted.filter((t) => (t.profitLoss || 0) > 0)
+  const losses = sorted.filter((t) => (t.profitLoss || 0) < 0)
+  const winRate = wins.length / sorted.length
+  const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + (t.profitLoss || 0), 0) / wins.length : 0
+  const avgLoss =
+    losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + (t.profitLoss || 0), 0) / losses.length) : 0
+  const expectancyPerTrade = winRate * avgWin - (1 - winRate) * avgLoss
+
+  return {
+    sortinoRatio: Number(sortinoRatio.toFixed(3)),
+    calmarRatio: Number(calmarRatio.toFixed(3)),
+    cagr: Number(cagr.toFixed(2)),
+    currentWinStreak,
+    currentLossStreak,
+    maxWinStreak,
+    maxLossStreak,
+    avgRMultiple: Number(avgRMultiple.toFixed(3)),
+    expectancyPerTrade: Number(expectancyPerTrade.toFixed(2)),
+  }
+}
+
+// ---- Time-of-day analysis ----
+
+export interface HourlyPerformance {
+  hour: number
+  label: string
+  trades: number
+  profitLoss: number
+  winRate: number
+}
+
+export function calculateHourlyPerformance(backtests: Backtest[]): HourlyPerformance[] {
+  const hourMap: Record<number, { profitLoss: number; trades: number; wins: number }> = {}
+
+  for (const trade of backtests) {
+    const hour = new Date(trade.entryDateTime).getHours()
+    if (!hourMap[hour]) hourMap[hour] = { profitLoss: 0, trades: 0, wins: 0 }
+    hourMap[hour].profitLoss += trade.profitLoss || 0
+    hourMap[hour].trades += 1
+    if ((trade.profitLoss || 0) > 0) hourMap[hour].wins += 1
+  }
+
+  return Object.entries(hourMap)
+    .map(([hourStr, data]) => {
+      const hour = Number(hourStr)
+      const ampm = hour < 12 ? "AM" : "PM"
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+      return {
+        hour,
+        label: `${displayHour}${ampm}`,
+        trades: data.trades,
+        profitLoss: Number(data.profitLoss.toFixed(2)),
+        winRate: data.trades > 0 ? Number(((data.wins / data.trades) * 100).toFixed(1)) : 0,
+      }
+    })
+    .sort((a, b) => a.hour - b.hour)
+}
+
+// ---- Day-of-week analysis ----
+
+export interface DayOfWeekPerformance {
+  day: number
+  label: string
+  trades: number
+  profitLoss: number
+  winRate: number
+}
+
+export function calculateDayOfWeekPerformance(backtests: Backtest[]): DayOfWeekPerformance[] {
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const dayMap: Record<number, { profitLoss: number; trades: number; wins: number }> = {}
+
+  for (const trade of backtests) {
+    const day = new Date(trade.entryDateTime).getDay()
+    if (!dayMap[day]) dayMap[day] = { profitLoss: 0, trades: 0, wins: 0 }
+    dayMap[day].profitLoss += trade.profitLoss || 0
+    dayMap[day].trades += 1
+    if ((trade.profitLoss || 0) > 0) dayMap[day].wins += 1
+  }
+
+  return Object.entries(dayMap)
+    .map(([dayStr, data]) => {
+      const day = Number(dayStr)
+      return {
+        day,
+        label: DAY_LABELS[day],
+        trades: data.trades,
+        profitLoss: Number(data.profitLoss.toFixed(2)),
+        winRate: data.trades > 0 ? Number(((data.wins / data.trades) * 100).toFixed(1)) : 0,
+      }
+    })
+    .sort((a, b) => a.day - b.day)
+}
+
+// ---- R-Multiple distribution ----
+
+export interface RMultipleBucket {
+  range: string
+  count: number
+}
+
+export function calculateRMultipleDistribution(backtests: Backtest[]): RMultipleBucket[] {
+  const tradesWithR = backtests.filter((t) => t.riskAmount && t.riskAmount > 0)
+  if (tradesWithR.length === 0) return []
+
+  const rValues = tradesWithR.map((t) => (t.profitLoss || 0) / (t.riskAmount as number))
+
+  // Fixed buckets: < -3, -3 to -2, -2 to -1, -1 to 0, 0 to 1, 1 to 2, 2 to 3, > 3
+  const buckets: { min: number; max: number; label: string }[] = [
+    { min: -Infinity, max: -3, label: "< -3R" },
+    { min: -3, max: -2, label: "-3R to -2R" },
+    { min: -2, max: -1, label: "-2R to -1R" },
+    { min: -1, max: 0, label: "-1R to 0R" },
+    { min: 0, max: 1, label: "0R to 1R" },
+    { min: 1, max: 2, label: "1R to 2R" },
+    { min: 2, max: 3, label: "2R to 3R" },
+    { min: 3, max: Infinity, label: "> 3R" },
+  ]
+
+  return buckets
+    .map((b) => ({
+      range: b.label,
+      count: rValues.filter((r) => r >= b.min && r < b.max).length,
+    }))
+    .filter((b) => b.count > 0)
+}
+
 export function calculateStrategyPerformance(backtests: Backtest[]): StrategyPerformance[] {
   const strategyData: { [key: string]: { profitLoss: number; trades: number; wins: number; riskReward: number[] } } = {}
 

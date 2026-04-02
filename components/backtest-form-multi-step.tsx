@@ -265,6 +265,57 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
 
   const formValues = watch()
 
+  // --- Autosave draft to localStorage ---
+  const DRAFT_KEY = "backtest-form-draft"
+
+  // Restore draft on mount (if no prefill active)
+  useEffect(() => {
+    if (usePrefill) return // Let prefill take precedence
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY)
+      if (!saved) return
+      const draft: { values: Partial<BacktestFormData>; tags: string[]; indicators: string[]; step: number } =
+        JSON.parse(saved)
+      if (draft.values) {
+        reset({ ...getDefaultValues(), ...draft.values })
+      }
+      if (draft.tags) setTags(draft.tags)
+      if (draft.indicators) setIndicators(draft.indicators)
+      if (draft.step) setCurrentStep(draft.step)
+      toast({
+        title: "Draft Restored",
+        description: "Your unsaved trade draft has been restored.",
+      })
+    } catch {
+      // Ignore malformed draft
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Save draft on every form change (debounced via useEffect dependency on formValues)
+  useEffect(() => {
+    if (createBacktest.isSuccess) return // Don't save after successful submit
+    try {
+      const draft = {
+        values: formValues,
+        tags,
+        indicators,
+        step: currentStep,
+      }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch {
+      // Ignore storage errors (e.g. private browsing quota exceeded)
+    }
+  }, [formValues, tags, indicators, currentStep, createBacktest.isSuccess])
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+  }
+
   const createBacktest = useMutation({
     mutationFn: async (data: BacktestFormData) => {
       console.log("Submitting trade data:", data)
@@ -327,7 +378,11 @@ export function BacktestFormMultiStep({ onSuccess }: BacktestFormProps) {
       // Save the successful trade data for future pre-fill
       saveLastSuccessfulTrade({ ...variables, tags, indicatorsUsed: indicators })
 
+      // Clear autosave draft on success
+      clearDraft()
+
       queryClient.invalidateQueries({ queryKey: ["backtests"] })
+      queryClient.invalidateQueries({ queryKey: ["backtests-all"] })
       queryClient.invalidateQueries({ queryKey: ["analytics"] })
 
       toast({

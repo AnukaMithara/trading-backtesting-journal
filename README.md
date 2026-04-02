@@ -47,7 +47,7 @@ npm install
 3. Set up environment variables:
 Create a `.env.local` file in the root directory:
 \`\`\`env
-MONGODB_URI=mongodb+srv://anukamithara:gep2@123@backtesting-data.imfhmm1.mongodb.net/
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>
 \`\`\`
 
 4. Run the development server:

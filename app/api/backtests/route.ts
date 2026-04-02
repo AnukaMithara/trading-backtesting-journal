@@ -21,14 +21,39 @@ export async function GET(request: NextRequest) {
     const tag = searchParams.get("tag")
     const assetClass = searchParams.get("assetClass")
 
-    const filter: any = {}
+    // Pagination params (optional — omitting both returns all records for backwards compat)
+    const pageParam = searchParams.get("page")
+    const pageSizeParam = searchParams.get("pageSize")
+    const paginated = pageParam !== null || pageSizeParam !== null
+    const page = Math.max(1, parseInt(pageParam ?? "1", 10))
+    const pageSize = Math.min(200, Math.max(1, parseInt(pageSizeParam ?? "25", 10)))
+
+    const filter: Record<string, unknown> = {}
     if (strategy) filter.strategyName = strategy
     if (asset) filter.asset = asset
     if (tag) filter.tags = { $in: [tag] }
     if (assetClass) filter.assetClass = assetClass
 
-    const backtests = await collection.find(filter).sort({ entryDateTime: -1 }).toArray()
+    if (paginated) {
+      const [backtests, total] = await Promise.all([
+        collection
+          .find(filter)
+          .sort({ entryDateTime: -1 })
+          .skip((page - 1) * pageSize)
+          .limit(pageSize)
+          .toArray(),
+        collection.countDocuments(filter),
+      ])
+      return NextResponse.json({
+        trades: backtests,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      })
+    }
 
+    const backtests = await collection.find(filter).sort({ entryDateTime: -1 }).toArray()
     return NextResponse.json(backtests)
   } catch (error) {
     console.error("Error fetching backtests:", error)

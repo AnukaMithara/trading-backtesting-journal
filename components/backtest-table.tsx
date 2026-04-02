@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { EnhancedFilterPanel } from "@/components/enhanced-filter-panel"
-import { ArrowUpDown, Eye, Trash2, Download, Filter } from "lucide-react"
+import { ArrowUpDown, Eye, Trash2, Download, Filter, ChevronLeft, ChevronRight, PlusCircle } from "lucide-react"
 import type { Backtest } from "@/types/backtest"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
@@ -23,10 +24,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 export function BacktestTable() {
   const [sortField, setSortField] = useState<keyof Backtest>("entryDateTime")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [filters, setFilters] = useState<{
     dateRange?: DateRange
     assetClass?: string
@@ -44,12 +56,28 @@ export function BacktestTable() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [tradeToDelete, setTradeToDelete] = useState<{ id: string; tradeId: string } | null>(null)
 
-  const { data: backtests = [], isLoading } = useQuery({
-    queryKey: ["backtests"],
+  const { data: paginatedData, isLoading } = useQuery({
+    queryKey: ["backtests", page, pageSize],
+    queryFn: async () => {
+      const response = await fetch(`/api/backtests?page=${page}&pageSize=${pageSize}`)
+      if (!response.ok) throw new Error("Failed to fetch backtests")
+      return response.json() as Promise<{
+        trades: Backtest[]
+        total: number
+        page: number
+        pageSize: number
+        totalPages: number
+      }>
+    },
+  })
+
+  // Also fetch all trades (without pagination) for client-side filtering & CSV export
+  const { data: allTrades = [] } = useQuery({
+    queryKey: ["backtests-all"],
     queryFn: async () => {
       const response = await fetch("/api/backtests")
-      if (!response.ok) throw new Error("Failed to fetch backtests")
-      return response.json()
+      if (!response.ok) throw new Error("Failed to fetch all backtests")
+      return response.json() as Promise<Backtest[]>
     },
   })
 
@@ -66,11 +94,9 @@ export function BacktestTable() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backtests"] })
+      queryClient.invalidateQueries({ queryKey: ["backtests-all"] })
       queryClient.invalidateQueries({ queryKey: ["analytics"] })
-      toast({
-        title: "Success",
-        description: "Trade deleted successfully",
-      })
+      toast({ title: "Success", description: "Trade deleted successfully" })
     },
     onError: (error) => {
       toast({
@@ -90,29 +116,30 @@ export function BacktestTable() {
     }
   }
 
-  // Get unique values for filters
+  // Get unique values for filters from all trades
   const availableOptions = useMemo(() => {
     return {
-      assetClasses: [...new Set(backtests.map((b: Backtest) => b.assetClass).filter(Boolean))],
-      brokers: [...new Set(backtests.map((b: Backtest) => b.broker).filter(Boolean))],
-      strategies: [...new Set(backtests.map((b: Backtest) => b.strategyName).filter(Boolean))],
-      emotions: [...new Set(backtests.map((b: Backtest) => b.preTradeEmotion).filter(Boolean))],
-      assets: [...new Set(backtests.map((b: Backtest) => b.asset).filter(Boolean))],
-      tradeTypes: [...new Set(backtests.map((b: Backtest) => b.tradeType).filter(Boolean))],
+      assetClasses: [...new Set(allTrades.map((b) => b.assetClass).filter(Boolean))],
+      brokers: [...new Set(allTrades.map((b) => b.broker).filter(Boolean))],
+      strategies: [...new Set(allTrades.map((b) => b.strategyName).filter(Boolean))],
+      emotions: [...new Set(allTrades.map((b) => b.preTradeEmotion).filter(Boolean))],
+      assets: [...new Set(allTrades.map((b) => b.asset).filter(Boolean))],
+      tradeTypes: [...new Set(allTrades.map((b) => b.tradeType).filter(Boolean))],
     }
-  }, [backtests])
+  }, [allTrades])
 
-  const filteredAndSortedBacktests = useMemo(() => {
-    return backtests
-      .filter((backtest: Backtest) => {
-        // Date range filter
+  // Filter from all trades (client-side) for display when filters are active
+  const hasFilters = Object.values(filters).some((v) => v !== undefined && v !== "")
+
+  const filteredAndSortedTrades = useMemo(() => {
+    const source = hasFilters ? allTrades : (paginatedData?.trades ?? [])
+    return source
+      .filter((backtest) => {
         if (filters.dateRange?.from || filters.dateRange?.to) {
           const tradeDate = new Date(backtest.entryDateTime)
-          if (filters.dateRange.from && tradeDate < filters.dateRange.from) return false
-          if (filters.dateRange.to && tradeDate > filters.dateRange.to) return false
+          if (filters.dateRange?.from && tradeDate < filters.dateRange.from) return false
+          if (filters.dateRange?.to && tradeDate > filters.dateRange.to) return false
         }
-
-        // Search term filter
         if (filters.searchTerm) {
           const searchLower = filters.searchTerm.toLowerCase()
           const searchableFields = [
@@ -123,46 +150,35 @@ export function BacktestTable() {
             backtest.tradeNotes,
             ...(backtest.tags || []),
           ]
-          if (!searchableFields.some((field) => field?.toLowerCase().includes(searchLower))) {
-            return false
-          }
+          if (!searchableFields.some((field) => field?.toLowerCase().includes(searchLower))) return false
         }
-
-        // Basic filters
         if (filters.assetClass && backtest.assetClass !== filters.assetClass) return false
         if (filters.broker && backtest.broker !== filters.broker) return false
         if (filters.strategy && backtest.strategyName !== filters.strategy) return false
         if (filters.tradeType && backtest.tradeType !== filters.tradeType) return false
         if (filters.asset && backtest.asset !== filters.asset) return false
         if (filters.emotion && backtest.preTradeEmotion !== filters.emotion) return false
-
-        // Outcome filter
         if (filters.outcome) {
-          const profitLoss = backtest.profitLoss || 0
-          if (filters.outcome === "win" && profitLoss <= 0) return false
-          if (filters.outcome === "loss" && profitLoss >= 0) return false
-          if (filters.outcome === "breakeven" && profitLoss !== 0) return false
+          const pl = backtest.profitLoss || 0
+          if (filters.outcome === "win" && pl <= 0) return false
+          if (filters.outcome === "loss" && pl >= 0) return false
+          if (filters.outcome === "breakeven" && pl !== 0) return false
         }
-
-        // Amount range filters
         if (filters.minAmount !== undefined && (backtest.profitLoss || 0) < filters.minAmount) return false
         if (filters.maxAmount !== undefined && (backtest.profitLoss || 0) > filters.maxAmount) return false
-
         return true
       })
-      .sort((a: Backtest, b: Backtest) => {
+      .sort((a, b) => {
         const aValue = a[sortField]
         const bValue = b[sortField]
-
         if (aValue == null && bValue == null) return 0
         if (aValue == null) return sortDirection === "asc" ? -1 : 1
         if (bValue == null) return sortDirection === "asc" ? 1 : -1
-
         if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
         if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
         return 0
       })
-  }, [backtests, filters, sortField, sortDirection])
+  }, [allTrades, paginatedData, filters, sortField, sortDirection, hasFilters])
 
   const handleDelete = () => {
     if (tradeToDelete) {
@@ -174,20 +190,10 @@ export function BacktestTable() {
 
   const exportToCSV = () => {
     const headers = [
-      "Trade ID",
-      "Date",
-      "Asset",
-      "Strategy",
-      "Broker",
-      "Type",
-      "Entry Price",
-      "Exit Price",
-      "Position Size",
-      "P&L",
-      "Win/Loss",
+      "Trade ID", "Date", "Asset", "Strategy", "Broker", "Type",
+      "Entry Price", "Exit Price", "Position Size", "P&L", "Win/Loss",
     ]
-
-    const csvData = filteredAndSortedBacktests.map((trade) => [
+    const csvData = filteredAndSortedTrades.map((trade) => [
       trade.tradeId,
       new Date(trade.entryDateTime).toLocaleDateString(),
       trade.asset,
@@ -200,7 +206,6 @@ export function BacktestTable() {
       trade.profitLoss || 0,
       (trade.profitLoss || 0) > 0 ? "Win" : (trade.profitLoss || 0) < 0 ? "Loss" : "Breakeven",
     ])
-
     const csvContent = [headers, ...csvData].map((row) => row.join(",")).join("\n")
     const blob = new Blob([csvContent], { type: "text/csv" })
     const url = window.URL.createObjectURL(blob)
@@ -209,51 +214,111 @@ export function BacktestTable() {
     a.download = `trades-${new Date().toISOString().split("T")[0]}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
-
-    toast({
-      title: "Export Complete",
-      description: `Exported ${filteredAndSortedBacktests.length} trades to CSV`,
-    })
+    toast({ title: "Export Complete", description: `Exported ${filteredAndSortedTrades.length} trades to CSV` })
   }
+
+  const totalTrades = paginatedData?.total ?? allTrades.length
+  const totalPages = hasFilters
+    ? Math.ceil(filteredAndSortedTrades.length / pageSize)
+    : (paginatedData?.totalPages ?? 1)
+  const displayedTrades = hasFilters
+    ? filteredAndSortedTrades.slice((page - 1) * pageSize, page * pageSize)
+    : filteredAndSortedTrades
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-32 bg-muted rounded-lg mb-6"></div>
-          <div className="h-96 bg-muted rounded-lg"></div>
+        <Skeleton className="h-32 rounded-lg" />
+        <div className="space-y-2">
+          {[...Array(8)].map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-lg" />
+          ))}
         </div>
+      </div>
+    )
+  }
+
+  // True empty state (no trades exist at all)
+  if (!isLoading && totalTrades === 0 && !hasFilters) {
+    return (
+      <div className="space-y-6">
+        <EnhancedFilterPanel
+          title="Trade History"
+          filters={filters}
+          onFiltersChange={setFilters}
+          availableOptions={availableOptions}
+          showAdvanced={true}
+        />
+        <Card className="border-dashed border-2">
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center gap-4">
+            <Filter className="h-16 w-16 text-muted-foreground/40" />
+            <div>
+              <h3 className="text-xl font-semibold">No trades yet</h3>
+              <p className="text-muted-foreground mt-2 text-sm max-w-md">
+                You haven&apos;t logged any trades yet. Start by adding your first trade to begin tracking your performance.
+              </p>
+            </div>
+            <Link href="/add">
+              <Button className="gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Add Your First Trade
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Filter Panel */}
       <EnhancedFilterPanel
         title="Trade History"
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters)
+          setPage(1) // Reset to page 1 on filter change
+        }}
         availableOptions={availableOptions}
         showAdvanced={true}
       />
 
-      {/* Results Summary and Actions */}
       <Card className="shadow-lg border-0 bg-card/50 backdrop-blur">
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-xl sm:text-2xl">Trading History</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Showing {filteredAndSortedBacktests.length} of {backtests.length} trades
+                {hasFilters
+                  ? `Showing ${filteredAndSortedTrades.length} filtered trades (${totalTrades} total)`
+                  : `${totalTrades} total trades`}
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 items-center">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(val) => {
+                    setPageSize(Number(val))
+                    setPage(1)
+                  }}
+                >
+                  <SelectTrigger className="w-20 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={exportToCSV}
-                disabled={filteredAndSortedBacktests.length === 0}
+                disabled={filteredAndSortedTrades.length === 0}
                 className="w-full sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
@@ -269,80 +334,45 @@ export function BacktestTable() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("tradeId")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Trade ID
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("tradeId")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Trade ID <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[120px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("entryDateTime")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Entry Date
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("entryDateTime")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Entry Date <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[100px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("asset")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Asset
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("asset")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Asset <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[120px] hidden sm:table-cell">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("strategyName")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Strategy
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("strategyName")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Strategy <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[100px] hidden md:table-cell">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("broker")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Broker
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("broker")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Broker <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[80px] hidden lg:table-cell">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("tradeType")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Type
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("tradeType")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        Type <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[100px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("profitLoss")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        P&L
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <Button variant="ghost" onClick={() => handleSort("profitLoss")} className="h-auto p-0 font-semibold hover:bg-transparent">
+                        P&L <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
                     <TableHead className="min-w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedBacktests.map((backtest: Backtest) => (
+                  {displayedTrades.map((backtest) => (
                     <TableRow key={backtest._id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium font-mono text-sm">{backtest.tradeId || "N/A"}</TableCell>
                       <TableCell className="text-sm">
@@ -352,16 +382,10 @@ export function BacktestTable() {
                       <TableCell className="hidden sm:table-cell text-sm">{backtest.strategyName || "N/A"}</TableCell>
                       <TableCell className="hidden md:table-cell text-sm">{backtest.broker || "N/A"}</TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {backtest.tradeType || "N/A"}
-                        </Badge>
+                        <Badge variant="outline" className="capitalize text-xs">{backtest.tradeType || "N/A"}</Badge>
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={`font-semibold text-sm ${
-                            (backtest.profitLoss || 0) >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
+                        <span className={`font-semibold text-sm ${(backtest.profitLoss || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
                           ${(backtest.profitLoss || 0).toFixed(2)}
                         </span>
                       </TableCell>
@@ -387,8 +411,7 @@ export function BacktestTable() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Trade</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete trade "{tradeToDelete?.tradeId}"? This action cannot
-                                  be undone.
+                                  Are you sure you want to delete trade &ldquo;{tradeToDelete?.tradeId}&rdquo;? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -407,16 +430,16 @@ export function BacktestTable() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredAndSortedBacktests.length === 0 && (
+                  {displayedTrades.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={8} className="text-center py-16">
                         <div className="space-y-3">
                           <Filter className="h-12 w-12 text-muted-foreground mx-auto" />
                           <div>
-                            <h3 className="text-lg font-medium">No trades found</h3>
-                            <p className="text-muted-foreground">
+                            <h3 className="text-lg font-medium">No trades match your filters</h3>
+                            <p className="text-muted-foreground text-sm mt-1">
                               Try adjusting your filters or{" "}
-                              <Button variant="link" className="p-0 h-auto" onClick={() => setFilters({})}>
+                              <Button variant="link" className="p-0 h-auto" onClick={() => { setFilters({}); setPage(1) }}>
                                 clear all filters
                               </Button>
                             </p>
@@ -429,6 +452,35 @@ export function BacktestTable() {
               </Table>
             </div>
           </div>
+
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

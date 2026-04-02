@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
-import { calculateMetrics, calculateMonthlyPerformance, calculateStrategyPerformance } from "@/lib/utils/calculations"
+import {
+  calculateMetrics,
+  calculateMonthlyPerformance,
+  calculateStrategyPerformance,
+  calculateAdvancedMetrics,
+  calculateHourlyPerformance,
+  calculateDayOfWeekPerformance,
+  calculateRMultipleDistribution,
+} from "@/lib/utils/calculations"
 
 export async function GET() {
   try {
@@ -11,25 +19,35 @@ export async function GET() {
     const backtests = await collection.find({}).toArray()
 
     const metrics = calculateMetrics(backtests)
+    const advancedMetrics = calculateAdvancedMetrics(backtests)
     const monthlyPerformance = calculateMonthlyPerformance(backtests)
     const strategyPerformance = calculateStrategyPerformance(backtests)
+    const hourlyPerformance = calculateHourlyPerformance(backtests)
+    const dayOfWeekPerformance = calculateDayOfWeekPerformance(backtests)
+    const rMultipleDistribution = calculateRMultipleDistribution(backtests)
 
     // Calculate equity curve
-    const sortedTrades = backtests.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const sortedTrades = [...backtests].sort(
+      (a, b) => new Date(a.entryDateTime).getTime() - new Date(b.entryDateTime).getTime(),
+    )
     let runningTotal = 0
     const equityCurve = sortedTrades.map((trade) => {
-      runningTotal += trade.profitLoss
+      runningTotal += trade.profitLoss || 0
       return {
-        date: trade.date,
-        equity: runningTotal,
+        date: trade.entryDateTime,
+        equity: Number(runningTotal.toFixed(2)),
       }
     })
 
     return NextResponse.json({
       metrics,
+      advancedMetrics,
       monthlyPerformance,
       strategyPerformance,
       equityCurve,
+      hourlyPerformance,
+      dayOfWeekPerformance,
+      rMultipleDistribution,
     })
   } catch (error) {
     console.error("MongoDB connection error:", error)
@@ -49,9 +67,23 @@ export async function GET() {
 
     return NextResponse.json({
       metrics: defaultMetrics,
+      advancedMetrics: {
+        sortinoRatio: 0,
+        calmarRatio: 0,
+        cagr: 0,
+        currentWinStreak: 0,
+        currentLossStreak: 0,
+        maxWinStreak: 0,
+        maxLossStreak: 0,
+        avgRMultiple: 0,
+        expectancyPerTrade: 0,
+      },
       monthlyPerformance: [],
       strategyPerformance: [],
       equityCurve: [],
+      hourlyPerformance: [],
+      dayOfWeekPerformance: [],
+      rMultipleDistribution: [],
     })
   }
 }
